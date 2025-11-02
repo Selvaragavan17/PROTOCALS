@@ -1,0 +1,230 @@
+Slide 1 — Title Slide
+Slide content (title area):
+Watchdog Timer (WDT) – Design & Architecture
+Slide content (subtitle area):
+Ensuring system health, automatic recovery and reliability in embedded systems
+Presenter note:
+Introduce yourself, state the goal: explain what a WDT is, why it matters, and how this WDT design (APB, prescaler, timer, FSM, CSR) works in detail.
+________________________________________
+Slide 2 — Agenda
+Slide content (bullets):
+•	What is a Watchdog Timer?
+•	Why it’s needed (use-cases)
+•	Key features overview
+•	Block-level design (APB, CSR, FSM, Timer, Prescaler)
+•	Interface signals & timing behavior
+•	FSM states & transitions
+•	APB read/write examples
+•	Applications, advantages, summary, Q&A
+Presenter note:
+Walk through the flow so audience knows what they’ll learn and how depth increases slide-to-slide.
+________________________________________
+Slide 3 — What is a Watchdog Timer? (expanded)
+Slide content (bullets):
+•	A hardware timer that continuously monitors system health by expecting periodic “kick” signals from the software.
+•	If the software fails to issue a kick in time, the WDT first issues a warning (interrupt) and then, on continued failure, resets the system automatically.
+•	It acts independently from application code — protecting the system even if the software hangs.
+•	Common in safety-critical & always-on systems to maintain availability and recover from faults without human intervention.
+Presenter note:
+Explain the independence property: because the WDT is hardware-based, it can catch software faults that software-based checks may miss.
+________________________________________
+Slide 4 — Need for a Watchdog Timer (why)
+Slide content (bullets):
+•	Detects and recovers from software hangs, infinite loops, deadlocks, and driver failures.
+•	Minimizes downtime by automatically restoring a known-good state.
+•	Adds robustness to systems where remote or unattended operation is required (IoT, automotive, medical).
+•	Helps meet safety and reliability requirements in product specs and certifications.
+Presenter note:
+Use a short story (e.g., remote weather station that must reboot itself when network stack crashes) to make it concrete.
+________________________________________
+Slide 5 — Key Features (overview)
+Slide content (bullets):
+•	Heartbeat / Kick mechanism to confirm liveness
+•	Two-step recovery: interrupt then reset
+•	APB register interface for software control and monitoring
+•	24-bit prescaler for wide timeout range
+•	Programmable registers for flexible configuration
+•	Optional safety unlock and suspend-mode support
+Presenter note:
+Briefly mention that each feature will be examined in detail in later slides.
+________________________________________
+Slide 6 — System Monitoring (feature detail)
+Slide content (bullets):
+•	The CPU (or supervising task) must send periodic kicks before timer expires.
+•	Kick frequency and timeout are programmable to match application needs.
+•	Kicks can be single-cycle pulses or register writes depending on implementation.
+•	Missing the kick is interpreted as the software failing to make progress.
+Presenter note:
+Point out tradeoffs: very short timeout increases sensitivity (more false resets), very long timeout delays recovery.
+________________________________________
+Slide 7 — Interrupt and Reset Generation (feature detail)
+Slide content (bullets):
+•	On first missed timeout: WDT asserts an interrupt to notify software — allows diagnostics or graceful shutdown.
+•	If software still fails to recover and misses the second timeout: WDT asserts reset to bring the system to a known state.
+•	Reset duration is configurable; interrupt can be a pulse or level-tied to a status bit.
+•	Two-step approach helps avoid unnecessary full resets and preserves debug info.
+Presenter note:
+Emphasize that an interrupt gives the software a chance for last-second recovery or to log error info.
+________________________________________
+Slide 8 — APB Interface Support (feature detail)
+Slide content (bullets):
+•  Inputs: paddr[15:0], psel, penable, pwrite, pwdata[31:0], pclk, presetn
+•  Outputs: prdata[31:0], pready, pslverr
+•  Writes: no wait states; Slave asserts csr_wr_en and pready=1
+•  Reads: Slave asserts csr_rd_en, waits for csr_rd_vld before pready=1 (wait cycles inserted)
+Presenter note:
+Mention that APB is deliberately simple — suitable for peripherals like WDT in an SoC.
+________________________________________
+Slide 9 — 24-bit Prescaler (feature detail)
+Slide content (bullets):
+•	Prescaler divides the core clock to produce slower pulses for timer counting.
+•	With 24 bits, very long timeout ranges are possible without huge timers.
+•	Prescaler_value determines how many core clock cycles generate one timer decrement (count_en pulse).
+•	Prescaler gives coarse/fine control: set prescaler + timer duration for precise timeouts.
+Presenter note:
+Give an example: with 50 MHz clock, prescaler can convert it to 1 Hz ticks depending on value — explain how this extends timer range.
+________________________________________
+Slide 10 — Programmable Registers (feature detail)
+Slide content (bullets):
+•	Software-configurable registers include:
+o	WDT enable/disable
+o	Timeout duration (timer reload value)
+o	Prescaler value
+o	Reset duration
+o	Status & clear bits for interrupts/resets
+•	Safe update rule: disable WDT before changing timing-critical fields to avoid transient behavior.
+•	Optional read-back registers provide runtime telemetry (current counter value, prescalar count).
+Presenter note:
+Recommend a typical register map layout and note the importance of atomic writes for certain fields (e.g., unlock patterns).
+________________________________________
+Slide 11 — Safety Pattern Unlock (feature detail)
+Slide content (bullets):
+•	Optional safety mechanism requires writing a specific unlock code before enabling/disabling the WDT.
+•	Prevents accidental changes by buggy software or spurious writes.
+•	Typical sequence: write UNLOCK code → write configuration → write ENABLE.
+•	Hardware rejects mis-ordered or incorrect unlock sequences.
+Presenter note:
+Explain that unlock reduces risk during firmware updates or autorun scripts.
+________________________________________
+Slide 12 — Suspend Mode Support (feature detail)
+Slide content (bullets):
+•	In low-power modes the WDT can either:
+o	Pause completely (no countdown), or
+o	Run at reduced rate (slow tick) depending on system policy.
+•	Choice depends on whether the watchdog must still protect while suspended (e.g., critical safety systems) or conserve battery.
+•	Status bits indicate whether the WDT was active during suspend.
+Presenter note:
+Point out design decision: always-running WDT may cause unwanted resets during long sleep periods unless software handles kicks properly.
+________________________________________
+Slide 13 — Design Overview (block-level)
+Slide content (bullets):
+•	Main blocks:
+o	APB Slave → receives register ops
+o	CSR → stores control & status registers, handles CDC
+o	Prescaler → creates count_en pulses
+o	Timer → 32-bit down counter
+o	Control FSM → decides interrupt/reset behavior
+o	Reset generator → shapes reset pulse to host
+•	Data flow: APB commands → CSR → core logic (timer/prescaler) → FSM → intr/reset outputs
+Presenter note:
+If you have a diagram, show it while explaining each block’s role in one pass.
+________________________________________
+Slide 14 — Interface Signals (detailed)
+Slide content (bullets):
+•	Core signals:
+o	clk_core — core clock input
+o	rst_n — async active-low reset
+o	intr — interrupt output to CPU
+o	reset — reset output to system
+•	APB signals:
+o	pclk, presetn, paddr, psel, penable, pwrite, pwdata, prdata, pready, pslverr
+•	CSR handshake signals: csr_wr_en, csr_rd_en, csr_rd_vld, csr_wr_data, csr_rd_data
+•	Synchronizers used for crossing pclk <-> core_clk domains for status reads/writes
+Presenter note:
+Highlight which signals are edgesensitive vs level-sensitive and which require synchronization.
+________________________________________
+Slide 15 — Timing Diagrams (healthy/missed/reset)
+Slide content (bullets):
+•	Healthy: kicks arrive before timer hits zero → no intr, no reset
+•	Miss once: timer reaches zero → FSM issues intr, timer may be reloaded or kept — system can recover
+•	Miss twice: second timeout without kick → FSM asserts reset for reset_duration
+•	Diagrams show relative positions of kick, intr, reset signals over time
+Presenter note:
+Walk through sample timing with numeric timeouts (e.g., 500 ms timeout, 1st intr at 500 ms, reset at 1000 ms if no kick).
+________________________________________
+Slide 16 — Control FSM (detailed)
+Slide content (bullets):
+•	FSM monitors signals: wdt_en, kick, timeout, reset_completed
+•	Actions:
+o	When enabled: enter WAIT_KICK_1
+o	On first timeout and no kick: assert intr, transition to WAIT_KICK_2
+o	On second timeout and no kick: assert reset and enter WAIT_RESET
+o	After reset completes, clear internal state and go to IDLE
+•	Reset duration is programmable; FSM drives reset generator accordingly
+Presenter note:
+You can show pseudocode/state-transition table so hardware designers see exact behavior.
+________________________________________
+Slide 17 — FSM State Table & Encoding
+Slide content (bullets):
+•	States:
+o	IDLE (2’b00) — disabled or after reset
+o	WAIT_KICK_1 (2’b01) — waiting for kick
+o	WAIT_KICK_2 (2’b10) — warning issued
+o	WAIT_RESET (2’b11) — reset active
+•	Transition conditions:
+o	IDLE → WAIT_KICK_1: wdt_en = 1
+o	WAIT_KICK_1 → WAIT_KICK_2: timeout && !kick
+o	WAIT_KICK_2 → WAIT_KICK_1: kick
+o	WAIT_KICK_2 → WAIT_RESET: timeout && !kick
+o	WAIT_RESET → IDLE: reset_completed
+Presenter note:
+Mention how encoded states map to registers for ease of debug/trace.
+________________________________________
+Slide 18 — CSR & Clock-Domain Crossing (CDC)
+Slide content (bullets):
+•	CPu/APB side uses pclk domain — writes control registers.
+•	Core logic (timer, prescaler, FSM) uses core_clk domain — updates status.
+•	CSR performs:
+o	Synchronizers for single-bit control/status crossing
+o	Multi-stage handshake (rd_en_sync_1/2/3) for reads
+o	Acknowledge paths for read latency and pready signaling
+•	Safe CDC avoids metastability and lost requests.
+Presenter note:
+Explain read example step-by-step: CPU asserts read, CSR synchronizes to core, core samples and returns data, CSR signals pready.
+________________________________________
+Slide 19 — APB Read / Write Examples (practical)
+Slide content (bullets):
+•	Write example: set prescaler + timeout + enable
+1.	Write prescaler_value
+2.	Write timeout_duration
+3.	Write unlock sequence (if enabled)
+4.	Write wdt_enable = 1
+•	Read example: check current_timer & intr status
+o	CPU initiates read, APB slave asserts csr_rd_en, waits for csr_rd_vld, prdata returns value
+•	Note: disable WDT before changing time-critical registers to avoid transient wrong behavior
+Presenter note:
+Recommend code snippet in firmware: disable → write → enable; also show how to clear an interrupt status bit.
+________________________________________
+Slide 20 — Advantages, Applications & Summary
+Slide content (bullets):
+Advantages
+•	Improves system availability and robustness
+•	Hardware-level protection independent from application
+•	Configurable and safe (unlock, suspend support)
+Applications
+•	Embedded devices, IoT nodes, routers, automotive ECUs, medical devices, industrial controllers
+Summary
+•	WDT monitors software liveness (kick mechanism)
+•	Two-step recovery: interrupt then reset
+•	APB-based configurable IP with prescaler, timer and FSM
+•	Essential for reliable, unattended systems
+Presenter note:
+Finish with a strong closing: WDT is a small hardware block that significantly increases system reliability and is inexpensive relative to its benefits.
+________________________________________
+Final Slide — Q&A and Thank You
+Slide content (bullets):
+•	Questions?
+•	Thank you for your time!
+•	Contact: [Your email / contact info]
+Presenter note:
+Invite questions, offer to share the PPT file, RTL examples, or a block diagram if attendees want deeper follow-up.
