@@ -228,3 +228,144 @@ Slide content (bullets):
 •	Contact: [Your email / contact info]
 Presenter note:
 Invite questions, offer to share the PPT file, RTL examples, or a block diagram if attendees want deeper follow-up.
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Test Case 1: Power-On Reset Defaults
+Objective: Verify Watchdog Timer reset behavior and register defaults.
+Test Input:
+presetn = 0
+core_rst_n = 0 (assert reset)
+After few cycle, deassert both resets.
+Expected Result:
+All internal and CSR registers = default values
+FSM state = IDLE
+intr = 0, reset = 0
+pready = 0 during reset
+After deassertion, ready for normal operation
+
+Test Case 2: Enable Starts Counting
+Objective: Verify counter starts when watchdog is enabled.
+Test Input:
+Program timeout_duration = 32’h0000_FFFF
+Program prescalar_value = 32’h0000_000A
+Set wdt_en = 1
+Expected Result:
+Timer and prescalar load programmed values
+FSM transitions IDLE → WAIT_KICK_1
+Counting begins
+
+Test Case 3: Normal Periodic Kicks
+Objective: Ensure periodic kicks prevent timeout.
+Test Input:
+Enable WDT (wdt_en = 1)
+Periodically pulse kick before timeout expires
+Expected Result:
+No interrupt or reset generated
+Timer reloads each time kick occurs
+
+Test Case 4: First Miss → Interrupt (Edge Mode)
+Objective: Check edge-type interrupt on first missed kick.
+Test Input:
+Configure interrupt type = edge
+Enable WDT, skip one kick
+Expected Result:
+1-cycle intr pulse generated
+Interrupt status bit set
+
+Test Case 5: First Miss → Interrupt (Level Mode)
+Objective: Check level-type interrupt on first missed kick.
+Test Input:
+Configure interrupt type = level
+Enable WDT, skip one kick
+Expected Result:
+intr stays HIGH until cleared via CSR
+Interrupt status bit = 1
+
+Test Case 6: Clear Level Interrupt (COR)
+Objective: Verify interrupt clear-on-read feature.
+Test Input:
+After Test 5, read interrupt status register (ISR)
+Expected Result:
+ISR bit clears
+intr signal goes LOW
+
+Test Case 7: Recover After First Miss
+Objective: Verify recovery when kicked after first miss.
+Test Input:
+Skip one kick (cause interrupt), then send kick before second timeout
+Expected Result:
+FSM returns to WAIT_KICK_1
+No reset triggered
+
+Test Case 8: Two Misses → Reset
+Objective: Verify reset after two consecutive missed kicks.
+Test Input:
+Do not send kick for two timeout periods
+Expected Result:
+reset asserted (active-high)
+FSM transitions WAIT_RESET → IDLE
+
+Test Case 9: Reset Duration Check
+Objective: Verify programmable reset duration.
+Test Input:
+Program reset_duration = 10 cycles
+Cause two missed kicks
+Expected Result:
+reset signal stays HIGH for exactly 10 cycles
+Then FSM returns to IDLE
+
+Test Case 10: Kick at Last Moment
+Objective: Verify late kick handling (edge condition).
+Test Input:
+Kick when current_timer = 1
+Expected Result:
+No interrupt or reset
+Timer reloads successfully
+
+Test Case 11: Prescalar Effect (Basic)
+Objective: Validate prescalar effect on timing.
+Test Input:
+Run once with prescalar = A, then with larger prescalar = B
+Expected Result:
+With higher prescalar, timer decrements slower
+Timeout occurs later
+
+Test Case 12: Parameter Change Requires Disable
+Objective: Check that configuration changes require disable.
+Test Input:
+While wdt_en = 1, attempt to modify timeout_duration and prescalar
+Expected Result:
+Values do not change while enabled
+After disabling and re-enabling, new values take effect
+
+Test Case 13: APB Basic Write/Read
+Objective: Verify APB read/write interface.
+Test Input:
+psel = 1, pwrite = 1, paddr = timeout_reg, pwdata = 32’hABCD_1234, penable = 1
+Perform read from same and other valid addresses
+Expected Result:
+Write accepted
+Read returns correct values
+pready asserts properly after access
+
+Test Case 14: Reserved Address Behavior
+Objective: Verify reserved address response.
+Test Input:
+Perform APB read/write to reserved address locations
+Expected Result:
+Read returns 0
+Write ignored (no internal change)
+No error or exception generated
+
+Test Case 15: Suspend Mode
+Objective: Pause and resume the watchdog timer.
+Test Input:
+Set wdt_en = 0 → suspend
+Wait without kicking
+Set wdt_en = 1 → resume
+Expected Result:
+During suspend: kick, intr, reset inactive
+On resume: counters reloaded, timer continues
