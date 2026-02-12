@@ -1,0 +1,113 @@
+ahb master seque
+
+32-bit word-aligned transfers
+Constrained-random address generation
+Weighted access distribution (DUT vs slave region)
+Burst transfer support
+Back-to-back transfers
+Busy transfer insertion
+Successive access verification
+Reset synchronization handling
+Address decoding validation
+Factory-based transaction creation
+Randomization assertion checking
+
+The AHB master sequence focuses on verifying 32-bit word-aligned transfers by constraining the lower address bits to maintain proper alignment. Address values are generated using constrained randomization so that transactions cover a wide range of the defined address space.
+
+To validate correct routing through the bridge, a weighted distribution mechanism is used. Most of the transactions (around 90%) are directed toward the DUT address region, while a smaller portion (around 10%) targets the active slave region. This helps confirm that address decoding and routing logic behave as expected.
+
+The sequence supports burst transactions and exercises different burst types to verify correct handling of multi-beat transfers. Back-to-back transfers are also generated to check continuous traffic behavior on the AHB bus. In addition, BUSY transfers are inserted between valid transfers to ensure that the design correctly handles intermediate busy cycles as defined by the AHB protocol.
+
+Successive transactions are exercised to validate proper sequential access behavior. The sequence waits for reset de-assertion and ensures clock stability before starting any activity, which helps verify correct reset synchronization.
+
+Transactions are distributed across different slave address ranges to check address decoding functionality. Factory-based transaction creation is used within the UVM environment to keep the sequence flexible and scalable.
+
+All randomized transactions are checked after generation to ensure that constraints are satisfied. This helps catch any unintended constraint failures and ensures that only valid stimulus is applied during simulation.
+
+32-bit word-aligned transfers
+Transfers are generated with proper 32-bit alignment by constraining the lower address bits.
+
+Constrained-random address generation
+Addresses are randomized within defined constraints to achieve good coverage across the address space.
+
+Weighted access distribution (DUT vs slave region)
+Most transactions target the DUT region, while a smaller portion is directed to the slave region to verify correct routing.
+
+Burst transfer support
+Different burst types are generated to validate multi-beat transfer handling.
+
+Back-to-back transfers
+Continuous transfers are issued without idle cycles to check sustained AHB traffic behavior.
+
+Busy transfer insertion
+BUSY cycles are inserted between transfers to verify correct protocol handling of intermediate busy states.
+
+Successive access verification
+Sequential transactions are applied to ensure proper handling of consecutive accesses.
+
+Reset synchronization handling
+The sequence waits for reset release and stable clock conditions before starting transactions.
+
+Address decoding validation
+Transactions are distributed across different address ranges to verify proper address decoding.
+
+Factory-based transaction creation
+Transactions are created using the UVM factory mechanism for flexibility and scalability.
+
+Randomization assertion checking
+Randomized transactions are checked to ensure constraints are satisfied and valid stimulus is generated.
+
+
+
+
+----------------------------------
+apb sequence
+APB OKAY and ERROR response generation
+Weighted response randomization
+Programmable wait-state insertion
+PREADY waveform validation
+PTIMEOUT handling and transfer abortion
+Slave error propagation support
+Configurable slave error suppression
+APB Rev2/Rev3 compatibility behavior
+Assertion-based response validation
+
+The APB slave sequence is designed to generate both OKAY and ERROR responses in order to verify normal operation as well as error conditions on the APB interface. The response type is controlled using weighted randomization so that both scenarios occur during simulation, while still maintaining a realistic distribution.
+
+The sequence also supports programmable wait-state insertion. A randomized wait count is used to introduce variable delays, which helps verify bridge behavior during extended APB transfers. During these cases, the correctness of the PREADY signal is monitored to ensure proper behavior in both wait and completion phases.
+
+PTIMEOUT functionality is verified by monitoring the number of inserted wait states. If the wait count exceeds the configured timeout limit, the transfer is aborted as expected. In addition, PSLVERR generation is supported to validate proper slave error propagation from the APB side to the AHB interface of the bridge.
+
+A configuration option is provided to suppress slave errors when required. This allows selective validation scenarios depending on the test configuration.
+
+The sequence behavior is aligned with both APB Revision 2 and Revision 3 specifications to ensure compatibility across different protocol versions.
+
+Basic assertion checks are included to confirm correct response generation and proper randomization behavior. The sequence works in coordination with the AHB-to-APB transaction model to ensure accurate modeling of protocol-level interaction between both interfaces.
+
+
+APB OKAY and ERROR response generation
+The slave can generate both OKAY and ERROR responses to verify normal and failure scenarios on the APB interface.
+
+Weighted response randomization
+Response types are randomized with a defined weight so that both OKAY and ERROR cases are exercised during simulation.
+
+Programmable wait-state insertion
+The sequence can insert a configurable number of wait states to test extended transfer conditions.
+
+PREADY waveform validation
+PREADY behavior is monitored to ensure it remains low during wait states and asserts correctly at transfer completion.
+
+PTIMEOUT handling and transfer abortion
+If the wait period exceeds the configured timeout value, the transfer is aborted to verify PTIMEOUT handling.
+
+Slave error propagation support
+When PSLVERR is generated, the sequence checks that the error is properly reflected on the AHB side.
+
+Configurable slave error suppression
+Error responses can be optionally disabled through configuration to support specific test scenarios.
+
+APB Rev2/Rev3 compatibility behavior
+The sequence behavior is aligned with both APB Revision 2 and Revision 3 protocol requirements.
+
+Assertion-based response validation
+Basic assertions are included to ensure responses are generated correctly and randomization works as intended.
